@@ -2,7 +2,7 @@
 #' @docType methods
 #' @details \strong{iModelOptim} Optimize iModel objects.
 #' @rdname iModel-method
-iModelOptim <- function(object, its) {
+iModelOptim <- function(object, its, verbose = TRUE) {
   # from spm_est_non_sphericity
   if (!is.null(object@xVi$Fcontrast))
     con <- .setcon("User-specified contrast", "F", "c", object@xVi$Fcontrast, object@X$KWX)
@@ -32,38 +32,48 @@ iModelOptim <- function(object, its) {
   nchunks <- floor(object@dims$nvox / chunksize)
   Cy <- matrix(0, object@dims$nimg, object@dims$nimg)
   s <- 0
+  if (verbose)
+    cat("Estimating covariance...\n")
+  if (verbose)
+    progress <- txtProgressBar(min = 0, max = nchunks, style = 3)
   for (j in seq_len(nchunks)) {
-    KWY <- .filter(object@X$K, object@X$W %*% object@Y[, chunkseq])
-    object@beta[, chunkseq] <- object@X$pKX %*% KWY
-    object@res[, chunkseq] <- .res(object@X$KWX, KWY)
-    object@mrss[, chunkseq] <- colSums(object@res[, chunkseq]^2) / object@X$trRV
+    tmpY <- object@Y[, chunkseq]
+    KWY <- .filter(object@X$K, object@X$W %*% tmpY)
+    beta <- object@X$pKX %*% KWY
+    res <- .res(object@X$KWX, KWY)
+    mrss <- colSums(res^2) / object@X$trRV
     if (object@control$scr)
-      object@res[, chunkseq] <- t(t(object@res[, chunkseq]) * (1 / as.numeric(object@mrss[, chunkseq])))
+      res <- t(t(res) * (1 / as.numeric(mrss)))
     
-    good <- chunkseq[(colSums((hsqr %*% object@beta[, chunkseq])^2) / trmv) > (UF * object@mrss[, chunkseq])]
+    good <- (colSums((hsqr %*% beta)^2) / trmv) > (UF * mrss)
     
     if (length(good) > 0) {
-      q <- as.numeric(sqrt(1 / object@mrss[, good]))
-      q <- t(t(object@Y[, good]) * q)
+      q <- as.numeric(sqrt(1 / mrss[good]))
+      q <- t(t(tmpY[, good]) * q)
       Cy <- tcrossprod(q)
       s <- s + length(good)
     }
     chunkseq <- chunkseq + chunksize
+    if (verbose)
+      setTxtProgressBar(progress, j)
   }
+  if (verbose)
+    close(progress)
   if (chunkseq[1] < object@dims$nvox) {
     chunkseq <- chunkseq[1]:object@dims$nvox
-    KWY <- .filter(object@X$K, object@X$W %*% object@Y[, chunkseq])
-    object@beta[, chunkseq] <- object@X$pKX %*% KWY
-    object@res[, chunkseq] <- .res(object@X$KWX, KWY)
-    object@mrss[, chunkseq] <- colSums(object@res[, chunkseq]^2) / object@X$trRV
+    tmpY <- object@Y[, chunkseq]
+    KWY <- .filter(object@X$K, object@X$W %*% tmpY)
+    beta <- object@X$pKX %*% KWY
+    res <- .res(object@X$KWX, KWY)
+    mrss <- colSums(res^2) / object@X$trRV
     if (object@control$scr)
-      object@res[, chunkseq] <- t(t(object@res[, chunkseq]) * (1 / as.numeric(object@mrss[, chunkseq])))
+      res <- t(t(res) * (1 / as.numeric(mrss)))
     
-    good <- chunkseq[(colSums((hsqr %*% object@beta[, chunkseq])^2) / trmv) > (UF * object@mrss[, chunkseq])]
+    good <- (colSums((hsqr %*% beta)^2) / trmv) > (UF *mrss)
     
     if (length(good) > 0) {
-      q <- as.numeric(sqrt(1 / object@mrss[, good]))
-      q <- t(t(object@Y[, good]) * q)
+      q <- as.numeric(sqrt(1 / mrss[good]))
+      q <- t(t(tmpY[, good]) * q)
       Cy <- tcrossprod(q)
       s <- s + length(good)
     }
@@ -100,17 +110,15 @@ iModelOptim <- function(object, its) {
       h[p] <- reml$hp
     }
   } else {
-    reml <- .reml(Cy, object@X$X, object@xVi$Vi, its = its)
+    # spm uses xVi.Vi instead of xVi.V not sure of this significance yet because Vi should be set if not multiple structures there
+    reml <- .reml(Cy, object@X$X, object@xVi$V, its = its)
     V <- reml$V
     h <- reml$h
   }
   
-  V <- V * n / sum(diag(V))
+  V <- V * object@dims$nimg / sum(diag(V))
   
-  object@xVi$h <- h
-  object@xVi$V <- V
-  object@xVi$Cy <- Cy
-  return(x)
+  return(list(h = h, V = V, Cy = Cy))
 }
 
 
@@ -160,14 +168,13 @@ iModelOptim <- function(object, its) {
   # ReML (EM/VB)----
   for (it in seq_len(its)) {
     # compute current estimate of covariance----
-    #C <- matrix(0, n, n)
-    C <- 0
-    for (i in 1:m)
+    C <- matrix(0, n, n)
+    for (i in seq_len(m))
       C <- C + Q[[i]] * h[i]
     
     # positive [semi]-definite check----
     # might be able to use nlme::pdMat()
-    for (i in 1:D) {
+    for (i in seq_len(D)) {
       if (min(eigen(C)$values) < 0) {
         t <- t - 1
         h <- h - dh
@@ -193,14 +200,14 @@ iModelOptim <- function(object, its) {
     U <- diag(n) - P %*% YY / N
     
     # dF/dh
-    for (i in 1:m) {
+    for (i in seq_len(m)) {
       PQ[[i]] <- P %*% Q[[i]]
       dFdh[i] <- -sum(diag(PQ[[i]] %*% U)) * N / 2
     }
     
     # expected curvature E{dF / dhhh}
-    for (i in 1:m) {
-      for (j in 1:m) {
+    for (i in seq_len(m)) {
+      for (j in seq_len(m)) {
         # dF/dhh
         dFdhh[i, j] <- -sum(diag(PQ[[i]] %*% PQ[[j]])) * N / 2
         dFdhh[j, i] <- dFdhh[i, j]
@@ -230,9 +237,8 @@ iModelOptim <- function(object, its) {
   
   # rebuild predicted covariance----
   V <- 0
-  for (i in 1:m) {
+  for (i in seq_len(m))
     V <- V + W[[i]] * h[i]
-  }
   
   # check V is positive semi-definite
   if (!D) {

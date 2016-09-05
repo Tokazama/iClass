@@ -39,7 +39,7 @@ iGroupMask <- function(x, mask) {
     if (class(mask) != "antsImage")
       stop("Mask must be of class antsImage.")
     j <- seq_len(ncol(x))[as.logical(mask[x@mask != 0])]
-    return(iGroupSubset(x, j = j)
+    return(iGroupSubset(x, j = j))
   }
 }
 
@@ -53,7 +53,7 @@ setMethod("show", "iGroup", function(object) {
   cat("       Name = ", object@name, "\n")
   cat("     Images = ", nrow(object), "\n")
   cat("     Voxels = ", ncol(object), "\n")
-  cat(" Dimensions = ", paste(dim(object@mask), collapse = "x"))
+  cat(" Dimensions = ", paste(dim(object@mask), collapse = "x"), "\n")
   cat("   Location = ", object@location, "\n")
   cat("   Modality = ", object@modality, "\n")
   cat("___\n")

@@ -1,15 +1,15 @@
 #' @export
 #' @rdname iFormula
-setClass("iDesign", 
-         slots = list(
-           Y = "DataSet",
-           X = "list",
-           xVi = "list",
-           mask = "antsImage",
-           dims = "list",
-           method = "character",
-           control = "list")
-)
+iDesign <- setClass("iDesign", 
+                    slots = list(
+                      Y = "DataSet",
+                      X = "list",
+                      xVi = "list",
+                      mask = "antsImage",
+                      dims = "list",
+                      method = "character",
+                      control = "list")
+                    )
 
 #' @export
 setMethod("show", "iDesign", function(object) {
@@ -18,7 +18,6 @@ setMethod("show", "iDesign", function(object) {
   cat("                      Images = ", object@dims$nimg, "\n")
   cat(" Residual degrees of freedom = ", object@X$rdf, "\n")
   cat("                      Voxels = ", object@dims$nvox, "\n")
-  cat("                    Location = ", object@location, "\n")
   cat("--- \n")
 })
 
@@ -69,13 +68,10 @@ setMethod("show", "iDesign", function(object) {
 #' z <- iFormula(iGroup1 ~ age, mydata, myfunc)
 #' 
 #' @export iFormula
-iFormula <- function(formula, iData, subset, weights = NULL, na.action = NULL, control = list()) {
+iFormula <- function(formula, iData, subset = NULL, weights = NULL, na.action = "na.omit", control = list()) {
   out <- iDesign()
   
-  control <- iControl()
-  if (!missing(control))
-    control[names(control)] <- control
-  out@control <- control
+
   
   lhs <- formula[[2]]
   groups <- all.vars(lhs)
@@ -98,7 +94,12 @@ iFormula <- function(formula, iData, subset, weights = NULL, na.action = NULL, c
   
   out <- list()
   for (i in seq_len(length(groups))) {
-    out <- iDesign()
+    out[[i]] <- iDesign()
+    control <- iControl()
+    if (!missing(control))
+      control[names(control)] <- control
+    out[[i]]@control <- control
+    
     out[[i]]@X$X <- model.matrix(rhs, data = iData@demog)
     out[[i]]@X$demog <- iData@demog
     out[[i]]@Y <- iData@iList[[groups[i]]]@iMatrix
@@ -106,7 +107,7 @@ iFormula <- function(formula, iData, subset, weights = NULL, na.action = NULL, c
     # set dims
     out[[i]]@dims$nimg <- nrow(out[[i]]@X$X)
     out[[i]]@dims$npred <- ncol(out[[i]]@X$X)
-    out[[i]]@dims$nvox <- ncol(out[[i]]@iData@iList[[groups[i]]])
+    out[[i]]@dims$nvox <- ncol(iData@iList[[groups[i]]])
     if (out[[i]]@control$rft) {
       out[[i]]@dims$fwhm <- c()
       out[[i]]@dims$resels <- c()
@@ -114,13 +115,10 @@ iFormula <- function(formula, iData, subset, weights = NULL, na.action = NULL, c
     }
     
     # set xVi
-    if (missing(xVi))
-      out[[i]]@xVi$V <- diag(out[[i]]@dims$nimg)
-    else
-      out[[i]]@xVi <- xVi
+    out[[i]]@xVi$V <- diag(out[[i]]@dims$nimg)
     
     # set K
-    K <- out[[i]]@iData@iList[[groups[i]]]@K
+    K <- iData@iList[[groups[i]]]@K
     if (class(K) == "numeric")
       out[[i]]@X$K <- K
     else if (class(K) == "data.frame")
@@ -152,5 +150,7 @@ iFormula <- function(formula, iData, subset, weights = NULL, na.action = NULL, c
     
     out[[i]]@mask <- antsImageClone(iData@iList[[groups[i]]]@mask)
   }
+  if (length(out) == 1)
+    out <- out[[1]]
   return(out)
 }

@@ -47,7 +47,7 @@ iGroup <- setClass("iGroup",
 
 #' @export
 setMethod("initialize", "iGroup", function(.Object, x = matrix(1, 1, 1), name, mask,
-                                           modality, rowslist, HParam, RT, checkMask = TRUE, filename) {
+                                           modality, rowslist, HParam, RT, checkMask = TRUE, filename, verbose = TRUE) {
   if (!usePkg("h5"))
     stop("Please install package h5 in order to use this function.")
   
@@ -149,6 +149,7 @@ setMethod("initialize", "iGroup", function(.Object, x = matrix(1, 1, 1), name, m
     }
     .Object@iMatrix <- .Object@file["iMatrix"]
   } else if (class(x) == "character") {
+    D <- length(dim(mask))
     # load images by mask segments segment
     chunksize <- (2^23) / length(x)
     chunkseq <- seq_len(chunksize)
@@ -158,11 +159,13 @@ setMethod("initialize", "iGroup", function(.Object, x = matrix(1, 1, 1), name, m
     
     tmpmask <- antsImageClone(mask)
     tmpmask[tmpmask != 0] <- 0
+    if (verbose)
+      progress <- txtProgressBar(min = 0, max = nchunk, style = 3)
     for (i in seq_len(nchunk)) {
       if (D == 2)
-        tmpmask[idx[1, chunkseq], idx[2, chunkseq]] <- 1
+        tmpmask[idx[chunkseq, 2], idx[chunkseq, 2]] <- 1
       else if (D == 3)
-        tmpmask[idx[1, chunkseq], idx[2, chunkseq], idx[3, chunkseq]] <- 1
+        tmpmask[idx[chunkseq, 1], idx[chunkseq, 2], idx[chunkseq, 3]] <- 1
       
       if (i == 1) {
         .Object@file["iMatrix"] <- imagesToMatrix(x, tmpmask)
@@ -172,19 +175,24 @@ setMethod("initialize", "iGroup", function(.Object, x = matrix(1, 1, 1), name, m
       imat <- cbind(imat, imagesToMatrix(x, tmpmask))
       
       if (D == 2)
-        tmpmask[idx[1, chunkseq], idx[2, chunkseq]] <- 0
+        tmpmask[idx[chunkseq, 2], idx[chunkseq, 2]] <- 0
       else if (D == 3)
-        tmpmask[idx[1, chunkseq], idx[2, chunkseq], idx[3, chunkseq]] <- 0
+        tmpmask[idx[chunkseq, 1], idx[chunkseq, 2], idx[chunkseq, 3]] <- 0
       
       chunkseq <- chunkseq + chunksize
+      if (verbose)
+        setTxtProgressBar(progress, i)
     }
-    
+    if (verbose)
+      close(progress)
     if (nvox > chunkseq[chunksize]) {
       chunkseq <- chunkseq[1]:nvox
       tmpmask[idx[1, chunkseq], idx[2, chunkseq], idx[chunkseq]] <- 1
       imat <- cbind(imat, imagesToMatrix(x, tmpmask))
     }
+    .Object@iMatrix <- imat
   }
+  
   return(.Object)
 })
 

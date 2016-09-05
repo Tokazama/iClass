@@ -64,6 +64,7 @@
 #' @rdname iModel-class
 iModel <- setClass("iModel",
                    slots = list(
+                     file = "H5File",
                      beta = "DataSet",
                      res = "DataSet",
                      mrss = "DataSet",
@@ -190,17 +191,17 @@ ilm <- function(formula, iData, weights, na.action = "na.omit", control = list()
 #' @param verbose Enables verbose output. (default = \code{TRUE}).
 #' 
 #' @export iglm
-iglm <- function(formula, iData, weights, na.action, method, its, control = list(), verbose = TRUE) {
-  resp <- iFormula(formula, iData, method = c("REML", "IWLS"), subset, weights, na.action, control)
+iglm <- function(formula, iData, subset = NULL, weights = NULL, na.action = "na.omit", method, its, control = list(), verbose = TRUE) {
+  resp <- iFormula(formula, iData, subset, weights, na.action, control)
   if (class(resp) == "list") {
     out <- list()
     for (i in seq_len(length(resp))) {
-      if (method == "IWLS") {
+      if (method == "REML") {
         if (missing(its))
-          its <- 200
-        out[[i]] <- .iwls_helper(resp[[i]], its, filename[i], verbose)
+          its <- 32
+        out[[i]] <- .iwls_helper(resp[[i]], its, verbose)
       } else {
-        out[[i]] <- iModelMake(resp[[i]], filename, call = "iglm")
+        out[[i]] <- iModelMake(resp[[i]], call = c("iglm", "REML"))
         out[[i]]@xVi <- iModelOptim(out[[i]], its)
         out[[i]] <- iModelUpdate(out[[i]])
         out[[i]] <- iModelSolve(out[[i]])
@@ -215,13 +216,13 @@ iglm <- function(formula, iData, weights, na.action, method, its, control = list
       }
     }
   } else {
-    if (methods == "IWLS")
-      out <- .iwls_helper(resp, filename, verbose)
+    if (method == "IWLS")
+      out <- .iwls_helper(resp, verbose)
     else {
-      out <- iModelMake(resp, filename, call = "iglm")
+      out <- iModelMake(resp, call = c("iglm", "REML"))
       if (missing(its))
         its <- 32
-      out@xVi <- .estNonSphericity(out, its)
+      out@xVi <- iModelOptim(out, its)
       out <- iModelUpdate(out)
       out <- iModelSolve(out)
     }
@@ -240,7 +241,7 @@ iglm <- function(formula, iData, weights, na.action, method, its, control = list
   return(out)
 }
 
-.iwls_helper <- function(iResp, its, filename, verbose) {
+.iwls_helper <- function(iResp, its, verbose) {
   H <- diag(out@X$X %*% tcrossprod(MASS::ginv(crossprod(out@X$X), out@X$X)))
   
   ores <- 1
@@ -303,9 +304,9 @@ iglm <- function(formula, iData, weights, na.action, method, its, control = list
 iModelMake <- function(iDesign, call) {
   if (!usePkg("h5"))
     stop("Please install package h5 in order to use this function.")
-  if (call == "ilm")
+  if (call[1] == "ilm")
     out <- ilModel()
-  else if (call == "iglm")
+  else if (call[1] == "iglm")
     out <- iglModel()
   
   out@Y <- iDesign@Y
@@ -313,7 +314,7 @@ iModelMake <- function(iDesign, call) {
   out@xVi <- iDesign@xVi
   out@mask <- antsImageClone(iDesign@mask)
   out@dims <- iDesign@dims
-  out@method <- iDesign@method
+  out@method <- call
   out@control <- iDesign@control
   
   if (!usePkg("h5"))
@@ -345,6 +346,9 @@ iModelMake <- function(iDesign, call) {
     res <- cbind(res, data.matrix(matrix(0, out@dims$npred, chunksize)))
     mrss <- cbind(mrss, data.matrix(matrix(0, out@dims$npred, chunksize)))
   }
+  out@beta <- beta
+  out@res <- res
+  out@mrss <- mrss
   return(out)
 }
 
