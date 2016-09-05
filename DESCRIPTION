@@ -1,0 +1,24 @@
+Package: iClass
+Type: Package
+Title: More intuitive syntax for manipulating imaging data
+Version: 0.0.0.1
+Date: 2016-09-02
+Author: Zachary P. Christensen
+Maintainer: Zach Christensen <zchristensen7@gmail.com>
+Description: This package is currently under active development and is currently
+  more of a testing grounds for potential implementation in the ANTsR package so
+  use at your own risk. The original goal was to impliment random field theory 
+  based analyses (like unto SPM in matlab) but quickly expanded into enabling more
+  intuitive syntax for manipulating imaging data. 
+License: GPL (>= 2)
+Imports:
+    Rcpp (>= 0.12.5),
+    ANTsR,
+    tools,
+    magrittr,
+    h5
+Suggests:
+    rgl,
+    misc3d
+LinkingTo: Rcpp
+RoxygenNote: 5.0.1
