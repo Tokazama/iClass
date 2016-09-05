@@ -123,7 +123,7 @@ setMethod("anova", "iModel", function(object, contrastMatrix, cthresh = 150, thr
 #' @docType methods
 #' @description \strong{summary} Compute f-statistic or t-statistic contrast for iModel object.
 #' @rdname iModel-contrasts
-setMethod("summary", "iModel", function(object, contrastMatrix, cthresh = 150, threshType = "pRFT", pval = 0.05, pp = 0.001, verbose = TRUE) {
+summary.iModel <- function(object, contrastMatrix, cthresh = 150, threshType = "pRFT", pval = 0.05, pp = 0.001, verbose = TRUE) {
   if (missing(contrastMatrix)) {
     contrastMatrix <- matrix(rep(1, ncol(object@X$X)), nrow = 1)
     colnames(contrastMatrix) <- colnames(object@X$X)
@@ -215,4 +215,4 @@ setMethod("summary", "iModel", function(object, contrastMatrix, cthresh = 150, t
   }
   names(object@C)[conseq] <- connames
   return(object)
-})
+}

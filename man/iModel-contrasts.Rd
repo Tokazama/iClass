@@ -4,13 +4,13 @@
 \name{iModel-contrasts}
 \alias{anova,iModel-method}
 \alias{iModel-contrasts}
-\alias{summary,iModel-method}
+\alias{summary.iModel}
 \title{iModel Contrasts}
 \usage{
 \S4method{anova}{iModel}(object, contrastMatrix, cthresh = 150,
   threshType = "cFDR", pval = 0.05, pp = 0.001, verbose = TRUE)
 
-\S4method{summary}{iModel}(object, contrastMatrix, cthresh = 150,
+\method{summary}{iModel}(object, contrastMatrix, cthresh = 150,
   threshType = "pRFT", pval = 0.05, pp = 0.001, verbose = TRUE)
 }
 \arguments{
