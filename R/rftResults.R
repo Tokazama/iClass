@@ -218,3 +218,39 @@ rftResults <- function(x, resels, fwhm, df, fieldType,
   }
   return(results)
 }
+
+# cluster threshold to resel threshold space
+v2r <- function(iModel, cthresh) {
+  cthresh * (1 / prod(iModel$fwhm))
+}
+
+rftSetLevel <- function(iModel, cthresh, sthresh) {
+  k <- v2r(iModel, cthresh)
+  clust <- labelClusters(iModel$statImage, cthresh, sthresh, Inf)
+  nclus <- length(unique(clust[clust > 0]))
+  stat <- rftPval(iModel$D, nclus, k, sthresh, n = 1, iModel$resels, iModel$df, iModel$fieldType)$Pcor
+}
+
+rftClusterLevel <- function(rftModel, cthresh, sthresh, n, resels, fwhm, df, fieldType) {
+  cmask <- antsImageClone(clust)
+  cmask[cmask != tmp] <- 0
+  cmask[cmask == tmp] <- 1
+  rkc <- rpvImage[cmask == 1]
+  lkc <- sum(rkc) / tmp
+  iv <- matrix(resels(cmask, c(1, 1, 1)), nrow = 1)
+  iv <- iv %*% matrix(c(1 / 2, 2 / 3, 2 / 3, 1), ncol = 1)
+  K <- iv * lkc
+  clust <- labelClusters(statImage, cthresh, sthresh, Inf)
+  nclus <- length(unique(clust[clust > 0]))
+  ClusterStats[, 1] <- sapply(K, function(tmp)
+    (rftPval(iModel$D, 1, tmp, sthresh, n, resels, df, fieldType)$Pcor))  # fwe p-value (cluster)
+  ClusterStats[, 3] <- sapply(K, function(tmp)
+    (rftPval(iModel$D, 1, tmp, sthresh, n = 1, iModel$resels, iModel$df, iModel$fieldType)$Punc))  # uncorrected p-value (cluster)
+  ClusterStats[, 2] <- p.adjust(ClusterStats[, 3], "BH") # FDR (cluster)
+}
+
+rftPeakLevel <- function(statImage, cthresh, sthresh, n, resels, fwhm, df, fieldType) {
+  
+}
+        
+        
