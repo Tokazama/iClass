@@ -218,22 +218,8 @@ rftResults <- function(x, resels, fwhm, df, fieldType,
   }
   return(results)
 }
-
-# cluster threshold to resel threshold space
-v2r <- function(iModel, cthresh) {
-  cthresh * (1 / prod(iModel$fwhm))
-}
-
-rftSetLevel <- function(iModel, cthresh, sthresh) {
-  k <- v2r(iModel, cthresh)
-  clust <- labelClusters(iModel$statImage, cthresh, sthresh, Inf)
-  
-  out <- list(clusterImage = clust, setLevel = stat)
-  out
-}
         
 set_stat <- function(statImage, clusterImage, fwhm, cthresh, n, resels, df, fieldType) {
-  
   k <- cthresh * (1 / prod(fwhm))
   nclus <- length(unique(clusterImage[clusterImage > 0]))
   stat <- rftPval(D, nclus, k, sthresh, n, resels, df, fieldType)$Pcor
@@ -286,14 +272,21 @@ peak_stat <- function(statImage, clusterImage, n, resels, df, fieldType) {
   stat
 }
 
-rftClusterLevel <- function(statImage, clusterImage, cthresh, sthresh, n, resels, fwhm, df, fieldType) {
-  clusterImage <- labelClusters(iModel$statImage, cthresh, sthresh, Inf)
-  out <- cluster_stat(statImage, clusterImage, n, resels, df, fieldType)
+rftSetLevel <- function(statImage, cthresh, sthresh, n, resels, fwhm, df, fieldType) {
+  clusterImage <- labelClusters(statImage, cthresh, sthresh, Inf)
+  stat <- set_stat(statImage, clusterImage, fwhm, cthresh, n, resels, df, fieldType)
+  list(clusterImage = clusterImage, setLevel = stat)
+}
+
+rftClusterLevel <- function(statImage, clusterImage, rpvImage, cthresh, sthresh, n, resels, fwhm, df, fieldType) {
+  clusterImage <- labelClusters(statImage, cthresh, sthresh, Inf)
+  stat <- cluster_stat(statImage, clusterImage, n, resels, df, fieldType)
+  list(clusterImage = clusterImage, clusterLevel = stat)
 }
 
 rftPeakLevel <- function(statImage, cthresh, sthresh, n, resels, fwhm, df, fieldType) {
-  clusterImage <- labelClusters(iModel$statImage, cthresh, sthresh, Inf)
-  out <- peak_stat(statImage, clusterImage, n, resels, df, fieldType)
+  clusterImage <- labelClusters(statImage, cthresh, sthresh, Inf)
+  stat <- peak_stat(statImage, clusterImage, n, resels, df, fieldType)
+  list(clusterImage = clusterImage, peakLevel = stat)
 }
-        
         
