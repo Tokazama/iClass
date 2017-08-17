@@ -229,6 +229,8 @@ rftSetLevel <- function(iModel, cthresh, sthresh) {
   clust <- labelClusters(iModel$statImage, cthresh, sthresh, Inf)
   nclus <- length(unique(clust[clust > 0]))
   stat <- rftPval(iModel$D, nclus, k, sthresh, n = 1, iModel$resels, iModel$df, iModel$fieldType)$Pcor
+  out <- list(clusterImage = clust, setLevel = stat)
+  out
 }
 
 rftClusterLevel <- function(rftModel, cthresh, sthresh, n, resels, fwhm, df, fieldType) {
@@ -242,11 +244,14 @@ rftClusterLevel <- function(rftModel, cthresh, sthresh, n, resels, fwhm, df, fie
   K <- iv * lkc
   clust <- labelClusters(statImage, cthresh, sthresh, Inf)
   nclus <- length(unique(clust[clust > 0]))
-  ClusterStats[, 1] <- sapply(K, function(tmp)
+  df <- matrix(nrow = nclus, ncol = 3)
+  df[, 1] <- sapply(K, function(tmp)
     (rftPval(iModel$D, 1, tmp, sthresh, n, resels, df, fieldType)$Pcor))  # fwe p-value (cluster)
-  ClusterStats[, 3] <- sapply(K, function(tmp)
+  df[, 3] <- sapply(K, function(tmp)
     (rftPval(iModel$D, 1, tmp, sthresh, n = 1, iModel$resels, iModel$df, iModel$fieldType)$Punc))  # uncorrected p-value (cluster)
-  ClusterStats[, 2] <- p.adjust(ClusterStats[, 3], "BH") # FDR (cluster)
+  df[, 2] <- p.adjust(ClusterStats[, 3], "BH") # FDR (cluster)
+  out <- list(clusterImage = clust, clusterLevel = df)
+  out
 }
 
 rftPeakLevel <- function(statImage, cthresh, sthresh, n, resels, fwhm, df, fieldType) {
