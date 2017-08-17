@@ -227,35 +227,73 @@ v2r <- function(iModel, cthresh) {
 rftSetLevel <- function(iModel, cthresh, sthresh) {
   k <- v2r(iModel, cthresh)
   clust <- labelClusters(iModel$statImage, cthresh, sthresh, Inf)
-  nclus <- length(unique(clust[clust > 0]))
-  stat <- rftPval(iModel$D, nclus, k, sthresh, n = 1, iModel$resels, iModel$df, iModel$fieldType)$Pcor
+  
   out <- list(clusterImage = clust, setLevel = stat)
   out
 }
+        
+set_stat <- function(statImage, clusterImage, fwhm, cthresh, n, resels, df, fieldType) {
+  
+  k <- cthresh * (1 / prod(fwhm))
+  nclus <- length(unique(clusterImage[clusterImage > 0]))
+  stat <- rftPval(D, nclus, k, sthresh, n, resels, df, fieldType)$Pcor
+  stat
+}
 
-rftClusterLevel <- function(rftModel, cthresh, sthresh, n, resels, fwhm, df, fieldType) {
-  cmask <- antsImageClone(clust)
-  cmask[cmask != tmp] <- 0
-  cmask[cmask == tmp] <- 1
-  rkc <- rpvImage[cmask == 1]
-  lkc <- sum(rkc) / tmp
-  iv <- matrix(resels(cmask, c(1, 1, 1)), nrow = 1)
-  iv <- iv %*% matrix(c(1 / 2, 2 / 3, 2 / 3, 1), ncol = 1)
-  K <- iv * lkc
+cluster_stat <- function(statImage, clusterImage, rpvImage, n, resels, df, fieldType) {
+  csize <- sapply(labs, function(tmp) (sum(as.array(clust[clust == tmp])) / tmp))
+  K <- sapply(csize, function(tmp) (
+    if (is.null(rpvImage)) {
+      # follows isotropic image assumptions
+      K <- tmp * vox2res
+    } else {
+      # extract resels per voxel in cluster (for non-isotropic image)
+      lkc <- rpvImage[clusterImage != 0] / tmp
+      iv <- matrix(resels(clusterImage, rep(1, 3)), nrow = 1)
+      iv <- iv %*% matrix(c(1 / 2, 2 / 3, 2 / 3, 1), ncol = 1)
+      K <- iv * lkc
+    }))
   clust <- labelClusters(statImage, cthresh, sthresh, Inf)
-  nclus <- length(unique(clust[clust > 0]))
-  df <- matrix(nrow = nclus, ncol = 3)
-  df[, 1] <- sapply(K, function(tmp)
-    (rftPval(iModel$D, 1, tmp, sthresh, n, resels, df, fieldType)$Pcor))  # fwe p-value (cluster)
-  df[, 3] <- sapply(K, function(tmp)
-    (rftPval(iModel$D, 1, tmp, sthresh, n = 1, iModel$resels, iModel$df, iModel$fieldType)$Punc))  # uncorrected p-value (cluster)
-  df[, 2] <- p.adjust(ClusterStats[, 3], "BH") # FDR (cluster)
-  out <- list(clusterImage = clust, clusterLevel = df)
-  out
+  nclus <- length(unique(clusterImage[clusterImage > 0]))
+  stat <- matrix(nrow = nclus, ncol = 3)
+  stat[, 1] <- sapply(K, function(tmp)
+    (rftPval(D, 1, tmp, sthresh, n, resels, df, fieldType)$Pcor))  # fwe p-value (cluster)
+  stat[, 3] <- sapply(K, function(tmp)
+    (rftPval(D, 1, tmp, sthresh, n = 1, resels, df, fieldType)$Punc))  # uncorrected p-value (cluster)
+  stat[, 2] <- p.adjust(stat[, 3], "BH") # FDR (cluster)
+  stat
+}
+
+peak_stat <- function(statImage, clusterImage, n, resels, df, fieldType) {
+  labs <- unique(clusterImage[clusterImage > 0])
+  nclus <- length(labs)
+  Ez <- rftPval(D, 1, 0, u, n, resels, df, fieldType)$Ec
+  stat[, 4] <- sapply(labs, function(tmp)
+    (max(statImage[clust == tmp]))) # max value for each cluster
+  stat[, 1] <- sapply(stat[, 4], function(tmp)
+    (rftPval(D, 1, 0, tmp, n, resels, df, fieldType)$Pcor)) # fwe p-value (peak)
+  stat[, 2] <- sapply(stat[, 4], function(tmp)
+    (p.adjust(rftPval(D, 1, 0, tmp, n, resels, df, fieldType)$Ec / Ez, "BH", n = nclus))) # FDR (peak)
+  stat[, 3] <- sapply(stat[, 4], function(tmp)(
+    if (fieldType == "Z")
+      1 - pnorm(tmp)
+    else if (fieldType == "T")
+      1 - pt(tmp, df[2])
+    else if (fieldType == "F")
+      1 - pf(tmp, df[1], df[2])
+    else if (fieldType == "X")
+      1 - pchisq(tmp, df[1], df[2]))) # uncorrected p-value (peak)
+  stat
+}
+
+rftClusterLevel <- function(statImage, clusterImage, cthresh, sthresh, n, resels, fwhm, df, fieldType) {
+  clusterImage <- labelClusters(iModel$statImage, cthresh, sthresh, Inf)
+  out <- cluster_stat(statImage, clusterImage, n, resels, df, fieldType)
 }
 
 rftPeakLevel <- function(statImage, cthresh, sthresh, n, resels, fwhm, df, fieldType) {
-  
+  clusterImage <- labelClusters(iModel$statImage, cthresh, sthresh, Inf)
+  out <- peak_stat(statImage, clusterImage, n, resels, df, fieldType)
 }
         
         
